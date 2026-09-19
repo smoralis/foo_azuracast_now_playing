@@ -37,3 +37,8 @@ https://moodradio.peppermindmedia.com/api/nowplaying/80s-hits?coversync=70
 The console log (`foo_azuracast_now_playing:` prefix) prints the active delay when one is set.
 
 
+### Screenshots
+
+![Alt text](/screenshot1.png?raw=true "horizontal")
+
+![Alt text](/screenshot2.png?raw=true "vertical")
