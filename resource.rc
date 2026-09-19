@@ -1,0 +1,12 @@
+#include "resource.h"
+#include <windows.h>
+
+IDD_NOWPLAYING_CONFIG DIALOGEX 0, 0, 260, 70
+STYLE DS_SETFONT | WS_CHILD
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT           "Fixed Station API URL (e.g. 'https://host/api/nowplaying/shortcode'):", IDC_STATIC_URL, 8, 8, 244, 8
+    EDITTEXT        IDC_STATION_URL, 8, 18, 244, 14, ES_AUTOHSCROLL
+    LTEXT           "Poll interval (ms):", IDC_STATIC_INTERVAL, 8, 40, 90, 8
+    EDITTEXT        IDC_POLL_INTERVAL, 8, 50, 80, 14, ES_AUTOHSCROLL | ES_NUMBER
+END
