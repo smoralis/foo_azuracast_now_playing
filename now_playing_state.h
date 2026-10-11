@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <deque>
+#include <vector>
 #include <functional>
 #include <map>
 #include <cstdint>
@@ -27,10 +28,20 @@ struct SongInfo {
     std::string art_url;
 };
 
+struct HistoryEntry {
+    std::string text;            
+    long long played_at = 0;    
+
+    bool operator==(const HistoryEntry& o) const {
+        return played_at == o.played_at && text == o.text;
+    }
+};
+
 struct NowPlayingSnapshot {
     bool valid = false;
 	StationInfo station;
     SongInfo song;
+    std::vector<HistoryEntry> history;
     int listeners = -1;
     double elapsed = -1;
     double duration = -1;

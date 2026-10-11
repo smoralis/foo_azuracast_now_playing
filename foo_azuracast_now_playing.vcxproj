@@ -67,7 +67,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>winhttp.lib;gdiplus.lib;shlwapi.lib;foobar2000_SDK.lib
-;pfc.lib;shared.lib;columns_ui_sdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
+;pfc.lib;shared.lib;columns_ui_sdk.lib;foobar2000_SDK_helpers.lib;libPPUI.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
@@ -76,7 +76,7 @@
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\foobar2000\shared\x64\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\foobar2000\SDK\x64\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\pfc\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\foobar2000\helpers\x64\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\libPPUI\x64\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\foobar2000\shared\x64\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\foobar2000\SDK\x64\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\pfc\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <PostBuildEvent>
@@ -97,9 +97,9 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\foobar2000\shared\x64\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\foobar2000\SDK\x64\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\pfc\x64\Release;C:\Users\zeremy\Documents\GitHub\columns_ui-sdk\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\foobar2000\helpers\x64\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\libPPUI\x64\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\foobar2000\shared\x64\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\foobar2000\SDK\x64\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\pfc\x64\Release;C:\Users\zeremy\Documents\GitHub\columns_ui-sdk\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration Condition="'$(Configuration)|$(Platform)'=='Release|x64'">UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
-      <AdditionalLibraryDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\pfc\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\foobar2000\shared\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\foobar2000\SDK\Release;C:\Users\zeremy\Documents\GitHub\columns_ui-sdk\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\foobar2000\helpers\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\libPPUI\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\pfc\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\foobar2000\shared\Release;C:\Users\zeremy\Documents\GitHub\foobar2000-sdk\foobar2000\SDK\Release;C:\Users\zeremy\Documents\GitHub\columns_ui-sdk\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <ResourceCompile>
@@ -115,6 +115,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="history_popup.h" />
     <ClInclude Include="panel_render.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="json_lite.h" />
@@ -132,6 +133,7 @@
     </ClCompile>
     <ClCompile Include="component.cpp" />
     <ClCompile Include="cui_element.cpp" />
+    <ClCompile Include="history_popup.cpp" />
     <ClCompile Include="http_client.cpp" />
     <ClCompile Include="now_playing_state.cpp" />
     <ClCompile Include="panel_render.cpp" />

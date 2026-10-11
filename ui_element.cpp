@@ -2,6 +2,7 @@
 #include "now_playing_state.h"
 #include "panel_render.h"
 #include "settings.h"
+#include "history_popup.h"
 
 #include <foobar2000/SDK/foobar2000.h>
 #include <foobar2000/SDK/ui_element.h>
@@ -95,6 +96,8 @@ namespace {
 
             MSG_WM_SIZE(OnSize)
 
+            MSG_WM_LBUTTONUP(OnLButtonUp)
+
             MESSAGE_HANDLER_EX(
                 WM_APP + 1,
                 OnDataUpdated
@@ -158,6 +161,25 @@ namespace {
             Invalidate();
 
             return 0;
+        }
+
+
+        void OnLButtonUp(UINT, CPoint pt) {
+
+            CRect rc;
+            GetClientRect(&rc);
+
+            const auto snap =
+                azuracast::shared_service().snapshot();
+
+            if (snap.valid &&
+                !snap.history.empty() &&
+                azuracast::history_button_rect(rc).PtInRect(pt)) {
+
+                azuracast::show_history_popup(
+                    query_dui_theme(m_callback)
+                );
+            }
         }
 
 

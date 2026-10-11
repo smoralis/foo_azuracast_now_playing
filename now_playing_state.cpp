@@ -436,6 +436,25 @@ namespace azuracast {
                 snap.song.artist = song["artist"].asString("Unknown Artist");
                 snap.song.album = song["album"].asString("");
                 snap.song.art_url = song["art"].asString("");
+
+                const Json& hist = root["song_history"];
+                for (size_t i = 0; i < hist.size(); ++i) {
+                    const Json& entry = hist[i];
+                    const Json& hs = entry["song"];
+                    const std::string h_artist = hs["artist"].asString("");
+                    const std::string h_title = hs["title"].asString("");
+
+                    HistoryEntry he;
+                    if (!h_artist.empty() && !h_title.empty())
+                        he.text = h_artist + " - " + h_title;
+                    else
+                        he.text = hs["text"].asString(h_title);
+
+                    he.played_at = static_cast<long long>(entry["played_at"].asDouble(0));
+
+                    if (!he.text.empty())
+                        snap.history.push_back(he);
+                }
                 snap.listeners = root["listeners"]["current"].asInt(-1);
                 snap.elapsed = np["elapsed"].asDouble(-1);
                 snap.duration = np["duration"].asDouble(-1);

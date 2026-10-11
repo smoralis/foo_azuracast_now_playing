@@ -87,7 +87,7 @@ namespace azuracast {
             return out;
         }
 
-    } 
+    }
 
 
 
@@ -118,6 +118,20 @@ namespace azuracast {
             : RGB(0xB0, 0x30, 0x30);
 
         return t;
+    }
+
+
+    CRect history_button_rect(const CRect& rc) {
+        if (rc.Width() < 120 || rc.Height() < 100)
+            return CRect(0, 0, 0, 0);
+
+        constexpr int w = 60;
+        const bool narrow_bottom = rc.Width() < 260;
+
+        if (narrow_bottom)
+            return CRect(10, rc.bottom - 26, 10 + w, rc.bottom - 9);
+
+        return CRect(10, rc.bottom - 31, 10 + w, rc.bottom - 11);
     }
 
 
@@ -410,123 +424,143 @@ namespace azuracast {
             const int station_name_h =
                 compact ? 20 : 24;
 
-            if (horizontal) {
+            const int next_h =
+                compact ? 16 : 18;
 
-                const int station_y =
-                    art_y + art_box_h + gap;
+            auto draw_station_block = [&](int top, int bottom) {
+                if (bottom <= top)
+                    return;
 
-                if (station_y < content_bottom) {
+                int y = top;
 
-                    CRect stationNameRc(
+                if (!snap.station.next.empty() &&
+                    y + next_h <= bottom) {
+
+                    const std::string next_line =
+                        "Next: " + snap.station.next;
+
+                    CRect nextRc(
                         content_left,
-                        station_y,
+                        y,
                         content_right,
-                        std::min(
-                            content_bottom,
-                            station_y + station_name_h
-                        )
+                        y + next_h
                     );
 
-                    dc.SelectFont(hTitleFont);
+                    dc.SelectFont(hSmallFont);
                     dc.SetTextColor(theme.text_primary);
 
                     dc.DrawTextW(
                         pfc::stringcvt::
                         string_wide_from_utf8(
-                            snap.station.name.c_str()
+                            next_line.c_str()
                         ).get_ptr(),
                         -1,
-                        &stationNameRc,
+                        &nextRc,
                         DT_SINGLELINE |
                         DT_END_ELLIPSIS |
                         DT_NOPREFIX
                     );
 
-                    CRect descriptionRc(
-                        content_left,
-                        stationNameRc.bottom + 4,
-                        content_right,
-                        content_bottom
-                    );
-
-                    if (descriptionRc.bottom >
-                        descriptionRc.top) {
-
-                        dc.SelectFont(hSmallFont);
-
-                        dc.DrawTextW(
-                            pfc::stringcvt::
-                            string_wide_from_utf8(
-                                snap.station.description.c_str()
-                            ).get_ptr(),
-                            -1,
-                            &descriptionRc,
-                            DT_WORDBREAK |
-                            DT_END_ELLIPSIS |
-                            DT_NOPREFIX
-                        );
-                    }
+                    y = nextRc.bottom + next_h;
                 }
+
+                if (y >= bottom)
+                    return;
+
+                CRect stationNameRc(
+                    content_left,
+                    y,
+                    content_right,
+                    std::min<int>(bottom, y + station_name_h)
+                );
+
+                dc.SelectFont(hTitleFont);
+                dc.SetTextColor(theme.text_primary);
+
+                dc.DrawTextW(
+                    pfc::stringcvt::
+                    string_wide_from_utf8(
+                        snap.station.name.c_str()
+                    ).get_ptr(),
+                    -1,
+                    &stationNameRc,
+                    DT_SINGLELINE |
+                    DT_END_ELLIPSIS |
+                    DT_NOPREFIX
+                );
+
+                CRect descriptionRc(
+                    content_left,
+                    stationNameRc.bottom + 4,
+                    content_right,
+                    bottom
+                );
+
+                if (descriptionRc.bottom > descriptionRc.top) {
+
+                    dc.SelectFont(hSmallFont);
+
+                    dc.DrawTextW(
+                        pfc::stringcvt::
+                        string_wide_from_utf8(
+                            snap.station.description.c_str()
+                        ).get_ptr(),
+                        -1,
+                        &descriptionRc,
+                        DT_WORDBREAK |
+                        DT_END_ELLIPSIS |
+                        DT_NOPREFIX
+                    );
+                }
+                };
+
+            if (horizontal) {
+                draw_station_block(
+                    art_y + art_box_h + gap,
+                    content_bottom
+                );
             }
             else {
-
-                const int station_y =
-                    song_y + 4;
-
-                if (station_y < metadataRc.bottom) {
-
-                    CRect stationNameRc(
-                        content_left,
-                        station_y,
-                        content_right,
-                        std::min<int>(
-                            metadataRc.bottom,
-                            station_y + station_name_h
-                        )
-                    );
-
-                    dc.SelectFont(hTitleFont);
-                    dc.SetTextColor(theme.text_primary);
-
-                    dc.DrawTextW(
-                        pfc::stringcvt::
-                        string_wide_from_utf8(
-                            snap.station.name.c_str()
-                        ).get_ptr(),
-                        -1,
-                        &stationNameRc,
-                        DT_SINGLELINE |
-                        DT_END_ELLIPSIS |
-                        DT_NOPREFIX
-                    );
-
-                    CRect descriptionRc(
-                        content_left,
-                        stationNameRc.bottom + 4,
-                        content_right,
-                        metadataRc.bottom
-                    );
-
-                    if (descriptionRc.bottom >
-                        descriptionRc.top) {
-
-                        dc.SelectFont(hSmallFont);
-
-                        dc.DrawTextW(
-                            pfc::stringcvt::
-                            string_wide_from_utf8(
-                                snap.station.description.c_str()
-                            ).get_ptr(),
-                            -1,
-                            &descriptionRc,
-                            DT_WORDBREAK |
-                            DT_END_ELLIPSIS |
-                            DT_NOPREFIX
-                        );
-                    }
-                }
+                draw_station_block(
+                    song_y + 4,
+                    metadataRc.bottom
+                );
             }
 
+
+            const CRect histBtn = history_button_rect(rc);
+            const bool show_history_btn =
+                !snap.history.empty() &&
+                !histBtn.IsRectEmpty();
+
+            if (show_history_btn) {
+
+                CRect btn(histBtn);
+
+                dc.FillSolidRect(
+                    &btn,
+                    blend_color(theme.text_primary, theme.background, 0.88)
+                );
+
+                CBrush border;
+                border.CreateSolidBrush(
+                    blend_color(theme.text_primary, theme.background, 0.60)
+                );
+                dc.FrameRect(&btn, border);
+
+                dc.SelectFont(hSmallFont);
+                dc.SetTextColor(theme.text_primary);
+
+                dc.DrawTextW(
+                    L"History",
+                    -1,
+                    &btn,
+                    DT_SINGLELINE |
+                    DT_CENTER |
+                    DT_VCENTER |
+                    DT_NOPREFIX
+                );
+            }
 
             if (snap.listeners >= 0) {
 
@@ -543,7 +577,9 @@ namespace azuracast {
                     rc.Width() < 260;
 
                 CRect listenersRc(
-                    10,
+                    (show_history_btn && !narrow_bottom)
+                    ? static_cast<int>(histBtn.right) + 8
+                    : 10,
                     rc.bottom -
                     (narrow_bottom ? 43 : 30),
 
@@ -681,4 +717,4 @@ namespace azuracast {
         DeleteObject(hSmallFont);
     }
 
-} 
+}

@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "now_playing_state.h"
 #include "panel_render.h"
+#include "history_popup.h"
+#include <windowsx.h>
 #include <memory>
 
 #include <foobar2000/SDK/foobar2000.h>
@@ -84,6 +86,10 @@ namespace {
             case WM_PAINT:
                 OnPaint(wnd);
                 return 0;
+
+            case WM_LBUTTONUP:
+                OnClick(wnd, CPoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)));
+                return 0;
             }
 
             return DefWindowProc(wnd, msg, wp, lp);
@@ -139,6 +145,23 @@ namespace {
             m_font_callback_token.reset();
         }
 
+
+
+        void OnClick(HWND wnd, CPoint pt) {
+
+            CRect rc;
+            GetClientRect(wnd, &rc);
+
+            const auto snap =
+                azuracast::shared_service().snapshot();
+
+            if (snap.valid &&
+                !snap.history.empty() &&
+                azuracast::history_button_rect(rc).PtInRect(pt)) {
+
+                azuracast::show_history_popup(query_cui_theme());
+            }
+        }
 
 
         void OnPaint(HWND wnd) {
