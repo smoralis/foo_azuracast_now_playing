@@ -1,6 +1,6 @@
 # foo_azuracast_now_playing
 
-A foobar2000 component that shows what is playing on an [AzuraCast](https://www.azuracast.com/) station: station name and description, title, artist, album, cover art, listener count, the next track, and a progress bar with elapsed / total time. The data comes from the station's public Now Playing API.
+A foobar2000 component that shows what is playing on an [AzuraCast](https://www.azuracast.com/) station: station name and description, title, artist, album, cover art, listener count, the next track, song history and a progress bar with elapsed / total time. The data comes from the station's public Now Playing API.
 
 Created primary to display azuracast HLS streams metadata that foobar2000 doesn't.
 
