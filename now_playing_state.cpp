@@ -223,6 +223,7 @@ namespace azuracast {
         {
             std::lock_guard<std::mutex> lock(m_mutex);
             m_snapshot = NowPlayingSnapshot{};
+            m_discovered_endpoint.clear();
             m_current_art_url.clear();
             m_last_fetched_art_url.clear();
             m_last_countdown_s = -1;
@@ -255,10 +256,17 @@ namespace azuracast {
         while (!m_stop) {
             if (endpoint.empty()) {
                 endpoint = discover_station_endpoint(stream_url, cancel);
+
+                {
+                    std::lock_guard<std::mutex> lock(m_mutex);
+                    m_discovered_endpoint = endpoint;
+                }
+
                 if (endpoint.empty()) {
                     {
                         std::lock_guard<std::mutex> lock(m_mutex);
                         m_snapshot = NowPlayingSnapshot{};
+                        m_discovered_endpoint.clear();
                         m_snapshot.error = cancel && cancel->is_cancelled()
                             ? "request cancelled"
                             : "AzuraCast API endpoint not found for this stream";
@@ -630,4 +638,8 @@ namespace azuracast {
         return m_art_bitmap;
     }
 
+    std::wstring NowPlayingService::discovered_endpoint() const {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_discovered_endpoint;
+    }
 }

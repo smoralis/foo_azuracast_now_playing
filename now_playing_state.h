@@ -69,6 +69,8 @@ public:
     UpdateToken add_on_update(std::function<void()> cb);
     void remove_on_update(UpdateToken token);
 
+    std::wstring discovered_endpoint() const;
+
 private:
     void worker_thread(std::wstring station_url, unsigned poll_interval_ms, std::shared_ptr<HttpCancelToken> cancel);
     void auto_worker_thread(std::wstring stream_url, unsigned poll_interval_ms, std::shared_ptr<HttpCancelToken> cancel);
@@ -87,6 +89,8 @@ private:
     NowPlayingSnapshot m_snapshot;
     HBITMAP m_art_bitmap = nullptr;
     std::string m_current_art_url;
+
+    std::wstring m_discovered_endpoint;
 
     struct PendingUpdate {
         std::chrono::steady_clock::time_point ready_at;

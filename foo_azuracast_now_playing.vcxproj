@@ -137,6 +137,7 @@
     <ClCompile Include="http_client.cpp" />
     <ClCompile Include="now_playing_state.cpp" />
     <ClCompile Include="panel_render.cpp" />
+    <ClCompile Include="playlist_builder.cpp" />
     <ClCompile Include="settings.cpp" />
     <ClCompile Include="preferences.cpp" />
     <ClCompile Include="ui_element.cpp" />
