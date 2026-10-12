@@ -438,34 +438,56 @@ namespace azuracast {
 
                     const std::string next_line =
                         "Next: " + snap.station.next;
-
-                    CRect nextRc(
-                        content_left,
-                        y,
-                        content_right,
-                        y + next_h
-                    );
+                    const pfc::stringcvt::string_wide_from_utf8 next_w(next_line.c_str());
 
                     dc.SelectFont(hSmallFont);
                     dc.SetTextColor(theme.text_primary);
 
+                    TEXTMETRIC tm = {};
+                    dc.GetTextMetrics(&tm);
+                    const int line_h = std::max<int>(1, tm.tmHeight);
+
+                    const int max_h = std::min<int>(line_h * 2, bottom - y);
+
+                    CRect nextRc(content_left, y, content_right, y + max_h);
+                    CRect measureRc(nextRc);
                     dc.DrawTextW(
-                        pfc::stringcvt::
-                        string_wide_from_utf8(
-                            next_line.c_str()
-                        ).get_ptr(),
+                        next_w.get_ptr(), -1, &measureRc,
+                        DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX);
+
+                    nextRc.bottom = y + std::max<int>(next_h, std::min<int>(measureRc.Height(), max_h));
+
+                    dc.DrawTextW(
+                        next_w.get_ptr(),
                         -1,
                         &nextRc,
-                        DT_SINGLELINE |
-                        DT_END_ELLIPSIS |
+                        DT_WORDBREAK |
                         DT_NOPREFIX
                     );
 
                     y = nextRc.bottom + next_h;
                 }
 
+                {
+                    const bool had_next = y != top;
+                    const int divider_y = had_next ? y - next_h / 2 : top;
+                    if (divider_y < bottom) {
+                        dc.FillSolidRect(
+                            content_left,
+                            divider_y,
+                            content_right - content_left,
+                            1,
+                            theme.progress_track
+                        );
+                    }
+                    if (!had_next)
+                        y = top + 1 + next_h / 2;
+                }
+
                 if (y >= bottom)
                     return;
+
+                const int station_name_h = compact ? 32 : 38;
 
                 CRect stationNameRc(
                     content_left,
@@ -473,6 +495,37 @@ namespace azuracast {
                     content_right,
                     std::min<int>(bottom, y + station_name_h)
                 );
+
+
+                int text_left = content_left;
+                if (HBITMAP logo = shared_service().logo_bitmap()) {
+                    constexpr int kLogoHeight = 100;
+                    BITMAP bm = {};
+                    const int box_h = std::min<int>(kLogoHeight, bottom - y);
+                    if (box_h >= 12 && GetObject(logo, sizeof(bm), &bm) && bm.bmWidth > 0 && bm.bmHeight > 0) {
+                        const int max_w = std::max(1, (content_right - content_left) / 2);
+                        const double scale = std::min(
+                            (double)box_h / bm.bmHeight, (double)max_w / bm.bmWidth);
+                        const int lw = std::max(1, (int)(bm.bmWidth * scale));
+                        const int lh = std::max(1, (int)(bm.bmHeight * scale));
+
+                        CDC logoDC;
+                        logoDC.CreateCompatibleDC(dc);
+                        HBITMAP oldLogo = logoDC.SelectBitmap(logo);
+
+                        dc.SetStretchBltMode(HALFTONE);
+                        SetBrushOrgEx(dc, 0, 0, nullptr);
+                        dc.StretchBlt(
+                            content_left, y,
+                            lw, lh,
+                            logoDC, 0, 0, bm.bmWidth, bm.bmHeight,
+                            SRCCOPY);
+
+                        logoDC.SelectBitmap(oldLogo);
+                        text_left = content_left + lw + 8;
+                    }
+                }
+                stationNameRc.left = text_left;
 
                 dc.SelectFont(hTitleFont);
                 dc.SetTextColor(theme.text_primary);
@@ -484,13 +537,13 @@ namespace azuracast {
                     ).get_ptr(),
                     -1,
                     &stationNameRc,
-                    DT_SINGLELINE |
+                    DT_WORDBREAK |
                     DT_END_ELLIPSIS |
                     DT_NOPREFIX
                 );
 
                 CRect descriptionRc(
-                    content_left,
+                    text_left,
                     stationNameRc.bottom + 4,
                     content_right,
                     bottom

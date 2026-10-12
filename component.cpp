@@ -2,7 +2,7 @@
 
 DECLARE_COMPONENT_VERSION(
     "AzuraCast Now Playing",
-    "1.0.2",
+    "1.0.3",
     "Displays now-playing metadata (station name, station description,title, artist, album, art, listener count,next track , song history and playback time)\n"
     "from an AzuraCast station's public API.\n"
     "\n"

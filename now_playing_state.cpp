@@ -27,6 +27,38 @@ namespace azuracast {
 
         constexpr double kMaxCoverSyncSeconds = 600.0;
 
+        bool parse_seconds(std::wstring text, double& secs) {
+            const wchar_t* ws = L" \t\r\n";
+            const size_t b = text.find_first_not_of(ws);
+            if (b == std::wstring::npos) return false;
+            text = text.substr(b, text.find_last_not_of(ws) - b + 1);
+            if (!text.empty() && (text.back() == L's' || text.back() == L'S')) text.pop_back();
+            if (text.empty()) return false;
+
+            wchar_t* end = nullptr;
+            const double v = wcstod(text.c_str(), &end);
+            if (end == text.c_str() || *end != L'\0' || !(v >= 0.0)) return false;
+            secs = std::min(v, kMaxCoverSyncSeconds);
+            return true;
+        }
+
+        int coversync_from_track(const metadb_handle_ptr& track) {
+            if (track.is_empty()) return -1;
+
+            static service_ptr_t<titleformat_object> script;
+            if (script.is_empty())
+                titleformat_compiler::get()->compile_safe_ex(script, "[%coversync%]");
+
+            pfc::string8 text;
+            track->format_title(nullptr, text, script, nullptr);
+            if (text.is_empty()) return -1;
+
+            double secs = 0.0;
+            if (!parse_seconds(pfc::stringcvt::string_wide_from_utf8(text.get_ptr()).get_ptr(), secs))
+                return -1;
+            return (int)(secs * 1000.0);
+        }
+
         unsigned parse_coversync_ms(const std::wstring& url) {
             const size_t q = url.find(L'?');
             if (q == std::wstring::npos) return 0;
@@ -79,10 +111,14 @@ namespace azuracast {
             }
 
             void on_playback_stop(playback_control::t_stop_reason) override {
+                shared_service().set_track_sync_delay(-1);
                 shared_service().stop();
             }
 
             void on_playback_new_track(metadb_handle_ptr track) override {
+
+                shared_service().set_track_sync_delay(coversync_from_track(track));
+
                 if (cfg_station_url.get().is_empty() && track.is_valid()) {
                     const unsigned interval = (unsigned)std::max((int)cfg_poll_interval, 1000);
                     std::wstring track_path = pfc::stringcvt::string_wide_from_utf8(track->get_path()).get_ptr();
@@ -116,6 +152,7 @@ namespace azuracast {
         stop();
         std::lock_guard<std::mutex> lock(m_mutex);
         if (m_art_bitmap) DeleteObject(m_art_bitmap);
+        if (m_logo_bitmap) DeleteObject(m_logo_bitmap);
         Gdiplus::GdiplusShutdown(m_gdiplusToken);
     }
 
@@ -148,8 +185,8 @@ namespace azuracast {
     void NowPlayingService::start(const std::wstring& station_url, unsigned poll_interval_ms) {
         stop();
         m_stop = false;
-        m_sync_delay_ms = parse_coversync_ms(station_url);
-        if (m_sync_delay_ms) PROBE_LOG << "cover sync delay: " << (t_size)m_sync_delay_ms << " ms";
+        m_url_delay_ms = parse_coversync_ms(station_url);
+        update_effective_delay();
         auto cancel = std::make_shared<HttpCancelToken>();
         {
             std::lock_guard<std::mutex> lock(m_mutex);
@@ -189,8 +226,8 @@ namespace azuracast {
 
         stop();
         m_stop = false;
-        m_sync_delay_ms = parse_coversync_ms(stream_url);
-        if (m_sync_delay_ms) PROBE_LOG << "cover sync delay: " << (t_size)m_sync_delay_ms << " ms";
+        m_url_delay_ms = parse_coversync_ms(stream_url);
+        update_effective_delay();
 
         auto cancel = std::make_shared<HttpCancelToken>();
         {
@@ -205,6 +242,24 @@ namespace azuracast {
             poll_interval_ms,
             cancel
         );
+    }
+
+    void NowPlayingService::set_track_sync_delay(int ms) {
+        m_tag_delay_ms = ms < 0 ? -1 : ms;
+        update_effective_delay();
+    }
+
+    void NowPlayingService::update_effective_delay() {
+        const int tag = m_tag_delay_ms.load();
+        const unsigned effective = tag >= 0 ? (unsigned)tag : m_url_delay_ms.load();
+        const unsigned previous = m_sync_delay_ms.exchange(effective);
+        if (previous == effective) return;
+
+        if (effective)
+            PROBE_LOG << "cover sync delay: " << (t_size)effective << " ms"
+                      << (tag >= 0 ? " (playlist tag)" : " (URL)");
+        else
+            PROBE_LOG << "cover sync delay: off";
     }
 
     void NowPlayingService::stop() {
@@ -226,8 +281,14 @@ namespace azuracast {
             m_discovered_endpoint.clear();
             m_current_art_url.clear();
             m_last_fetched_art_url.clear();
+            m_logo_url.clear();
             m_last_countdown_s = -1;
             clear_pending_locked();
+
+            if (m_logo_bitmap) {
+                DeleteObject(m_logo_bitmap);
+                m_logo_bitmap = nullptr;
+            }
 
             if (m_art_bitmap) {
                 DeleteObject(m_art_bitmap);
@@ -437,6 +498,7 @@ namespace azuracast {
                 const Json& song = np["song"];
 
                 snap.valid = true;
+                snap.station.id = station["id"].asInt(-1);
                 snap.station.name = station["name"].asString("Unknown Station");
                 snap.station.description = station["description"].asString("");
                 snap.station.next = root["playing_next"]["song"]["text"].asString("");
@@ -472,6 +534,9 @@ namespace azuracast {
                 snap.error = std::string("JSON parse error: ") + e.what();
             }
         }
+
+        if (snap.valid && snap.station.id >= 0)
+            update_logo(station_url, snap.station.id, cancel);
 
         const unsigned delay_ms = m_sync_delay_ms.load();
         if (delay_ms > 0) {
@@ -563,6 +628,41 @@ namespace azuracast {
         return hbmp;
     }
 
+    void NowPlayingService::update_logo(const std::wstring& api_url, int station_id, const std::shared_ptr<HttpCancelToken>& cancel) {
+        wchar_t scheme[16] = {};
+        wchar_t host[512] = {};
+        URL_COMPONENTS uc = {};
+        uc.dwStructSize = sizeof(uc);
+        uc.lpszScheme = scheme;
+        uc.dwSchemeLength = _countof(scheme);
+        uc.lpszHostName = host;
+        uc.dwHostNameLength = _countof(host);
+        if (!WinHttpCrackUrl(api_url.c_str(), (DWORD)api_url.size(), 0, &uc)) return;
+
+        std::wstring base = std::wstring(scheme) + L"://" + host;
+        if (uc.nPort != INTERNET_DEFAULT_HTTP_PORT && uc.nPort != INTERNET_DEFAULT_HTTPS_PORT)
+            base += L":" + std::to_wstring(uc.nPort);
+
+        std::string url = pfc::stringcvt::string_utf8_from_wide(base.c_str()).get_ptr();
+        url += "/api/station/" + std::to_string(station_id) + "/art/placeholder";
+
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (url == m_logo_url) return;
+        }
+
+        HBITMAP hbmp = fetch_art_bitmap(url, cancel);
+
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (cancel && cancel->is_cancelled()) {
+            if (hbmp) DeleteObject(hbmp);
+            return;
+        }
+        if (m_logo_bitmap) DeleteObject(m_logo_bitmap);
+        m_logo_bitmap = hbmp;
+        m_logo_url = url;
+    }
+
     void NowPlayingService::update_art(const std::string& art_url, const std::shared_ptr<HttpCancelToken>& cancel) {
         HBITMAP hbmp = fetch_art_bitmap(art_url, cancel);
         if (!hbmp) return;
@@ -636,6 +736,11 @@ namespace azuracast {
     HBITMAP NowPlayingService::art_bitmap() const {
         std::lock_guard<std::mutex> lock(m_mutex);
         return m_art_bitmap;
+    }
+
+    HBITMAP NowPlayingService::logo_bitmap() const {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_logo_bitmap;
     }
 
     std::wstring NowPlayingService::discovered_endpoint() const {

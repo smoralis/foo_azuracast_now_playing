@@ -7,6 +7,7 @@
 #include <foobar2000/SDK/foobar2000.h>
 #include <shlwapi.h>
 #include <unordered_set>
+#include "file_info_impl.h"
 
 namespace {
     struct Station { std::string name, url; };
@@ -165,12 +166,30 @@ namespace {
 
         metadb_handle_list items;
 
+        auto hintList = metadb_hint_list::create();
+        metadb_hint_list_v2::ptr hintListV2;
+        hintListV2 ^= hintList;
+
+        if (hintListV2.is_empty()) {
+            throw std::runtime_error("Browse metadata hints are not supported by this foobar2000 version.");
+        }
+
         for (const auto& s : stations) {
             metadb_handle_ptr handle;
             playable_location_impl location(s.url.c_str(), 0);
             metadb::get()->handle_create(handle, location);
+
+            file_info_impl info;
+            const std::wstring streamName = utf8wide(s.name);
+            const std::string streamNameUtf8 = wideutf8(streamName);
+            info.meta_set("title", streamNameUtf8.c_str());
+            info.meta_set("stream name", streamNameUtf8.c_str());
+
+            hintListV2->add_hint_browse(handle, info, 0);
             items.add_item(handle);
         }
+
+        hintList->on_done();
 
         pm->playlist_add_items(index, items, bit_array_true());
         pm->set_active_playlist(index);

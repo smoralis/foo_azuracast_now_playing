@@ -26,8 +26,6 @@ namespace azuracast {
         );
     };
 
-    // Clickable "History" button in the bottom-left of the panel.
-    // Empty rect when the panel is too small to show it.
     CRect history_button_rect(const CRect& rc);
 
     void paint_now_playing_panel(

@@ -34,6 +34,8 @@ https://moodradio.peppermindmedia.com/hls/80s-hits/80s_hits.m3u8?coversync=70
 https://moodradio.peppermindmedia.com/api/nowplaying/80s-hits?coversync=70
 ```
 
+You can also set it per playlist entry with a `COVERSYNC` tag (seconds, e.g. `70`). When the playing entry has this tag it takes priority over `?coversync=` in the URL; `COVERSYNC=0` turns the delay off for that entry.
+
 The console log (`foo_azuracast_now_playing:` prefix) prints the active delay when one is set.
 
 
