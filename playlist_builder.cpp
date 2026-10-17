@@ -157,7 +157,7 @@ namespace {
             pfc::stringcvt::string_utf8_from_wide(base.c_str()).get_ptr();
 
         std::string playlist_name =
-            std::string("AzuraCast Stations - ") + base_utf8;
+            std::string("AzuraCast - ") + base_utf8;
 
         t_size index = pm->create_playlist(
             playlist_name.c_str(),

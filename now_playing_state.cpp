@@ -115,15 +115,61 @@ namespace azuracast {
                 shared_service().stop();
             }
 
+            static bool is_http_url(const char* s) {
+                return s && (pfc::stricmp_ascii_ex(s, 7, "http://", 7) == 0 ||
+                    pfc::stricmp_ascii_ex(s, 8, "https://", 8) == 0);
+            }
+
+            static pfc::string8 extract_embedded_http_url(const char* s) {
+                pfc::string8 out;
+                if (!s) return out;
+
+                const char* found = nullptr;
+                for (const char* p = s; *p; ++p) {
+                    if (pfc::stricmp_ascii_ex(p, 7, "http://", 7) == 0 ||
+                        pfc::stricmp_ascii_ex(p, 8, "https://", 8) == 0) {
+                        found = p;
+                        break;
+                    }
+                }
+                if (!found) return out;
+
+                const char* end = found;
+                while (*end && *end != ')' && *end != '"' && *end != '\'' &&
+                    *end != ' ' && *end != '\t' && *end != '\r' && *end != '\n')
+                    ++end;
+
+                out.add_string(found, (t_size)(end - found));
+                return out;
+            }
+
+            static pfc::string8 station_source_from_track(const metadb_handle_ptr& track) {
+                file_info_impl info;
+                if (track->get_info(info)) {
+                    const char* at = info.info_get("@");
+                    if (is_http_url(at)) return pfc::string8(at);
+
+                }
+
+                const char* path = track->get_path();
+                if (is_http_url(path)) return pfc::string8(path);
+
+                pfc::string8 embedded = extract_embedded_http_url(path);
+                if (!embedded.is_empty()) return embedded;
+
+                return pfc::string8(path);
+            }
+
             void on_playback_new_track(metadb_handle_ptr track) override {
 
                 shared_service().set_track_sync_delay(coversync_from_track(track));
 
-                if (cfg_station_url.get().is_empty() && track.is_valid()) {
-                    const unsigned interval = (unsigned)std::max((int)cfg_poll_interval, 1000);
-                    std::wstring track_path = pfc::stringcvt::string_wide_from_utf8(track->get_path()).get_ptr();
-                    shared_service().start_auto(track_path, interval);
-                }
+                if (!cfg_station_url.get().is_empty() || !track.is_valid()) return;
+
+                const unsigned interval = (unsigned)std::max((int)cfg_poll_interval, 1000);
+                const pfc::string8 source = station_source_from_track(track);
+                std::wstring track_path = pfc::stringcvt::string_wide_from_utf8(source.c_str()).get_ptr();
+                shared_service().start_auto(track_path, interval);
             }
 
             void on_playback_seek(double) override {}
@@ -257,7 +303,7 @@ namespace azuracast {
 
         if (effective)
             PROBE_LOG << "cover sync delay: " << (t_size)effective << " ms"
-                      << (tag >= 0 ? " (playlist tag)" : " (URL)");
+            << (tag >= 0 ? " (playlist tag)" : " (URL)");
         else
             PROBE_LOG << "cover sync delay: off";
     }
@@ -682,7 +728,7 @@ namespace azuracast {
         const auto left = m_pending.front().ready_at - now;
         if (left <= std::chrono::steady_clock::duration::zero()) return 0;
         const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(left).count();
-        return (int)((ms + 999) / 1000);  
+        return (int)((ms + 999) / 1000);
     }
 
     void NowPlayingService::clear_pending_locked() {
