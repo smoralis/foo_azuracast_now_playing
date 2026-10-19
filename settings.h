@@ -2,3 +2,4 @@
 
 extern cfg_string cfg_station_url;
 extern cfg_int cfg_poll_interval;
+extern cfg_bool cfg_disable_logging;

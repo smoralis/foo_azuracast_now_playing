@@ -33,13 +33,17 @@ namespace {
             CString url, interval;
             GetDlgItemText(IDC_STATION_URL, url);
             GetDlgItemText(IDC_POLL_INTERVAL, interval);
+
             const pfc::string8 new_url = pfc::string8(CT2A(url));
             const int ms = _wtoi(interval);
             const unsigned new_interval = ms > 0 ? (unsigned)ms : 10000;
 
             const bool url_changed = new_url != cfg_station_url.get();
+
             cfg_station_url = new_url;
             cfg_poll_interval = new_interval;
+            cfg_disable_logging =
+                (IsDlgButtonChecked(IDC_DISABLE_LOGGING) == BST_CHECKED);
 
             if (url_changed) {
                 azuracast::shared_service().refresh_from_preferences();
@@ -51,6 +55,7 @@ namespace {
         void reset() override {
             SetDlgItemText(IDC_STATION_URL, L"");
             SetDlgItemText(IDC_POLL_INTERVAL, L"10000");
+            CheckDlgButton(IDC_DISABLE_LOGGING, BST_UNCHECKED);
             m_callback->on_state_changed();
         }
 
@@ -58,6 +63,7 @@ namespace {
             MSG_WM_INITDIALOG(OnInitDialog)
             COMMAND_HANDLER_EX(IDC_STATION_URL, EN_CHANGE, OnEditChange)
             COMMAND_HANDLER_EX(IDC_POLL_INTERVAL, EN_CHANGE, OnEditChange)
+            COMMAND_HANDLER_EX(IDC_DISABLE_LOGGING, BN_CLICKED, OnEditChange)
             END_MSG_MAP()
 
     private:
@@ -65,6 +71,7 @@ namespace {
             m_darkModeHooks.AddDialogWithControls(*this);
             SetDlgItemText(IDC_STATION_URL, pfc::stringcvt::string_wide_from_utf8(cfg_station_url.get_ptr()));
             SetDlgItemText(IDC_POLL_INTERVAL, pfc::stringcvt::string_wide_from_utf8(pfc::format_int((int)cfg_poll_interval).get_ptr()));
+            CheckDlgButton(IDC_DISABLE_LOGGING, cfg_disable_logging ? BST_CHECKED : BST_UNCHECKED);
             return TRUE;
         }
 
@@ -74,8 +81,11 @@ namespace {
             CString url, interval;
             GetDlgItemText(IDC_STATION_URL, url);
             GetDlgItemText(IDC_POLL_INTERVAL, interval);
+
             return pfc::string8(CT2A(url)) != cfg_station_url.get()
-                || _wtoi(interval) != (int)cfg_poll_interval;
+                || _wtoi(interval) != (int)cfg_poll_interval
+                || (IsDlgButtonChecked(IDC_DISABLE_LOGGING) == BST_CHECKED)
+                != (bool)cfg_disable_logging;
         }
 
         const preferences_page_callback::ptr m_callback;

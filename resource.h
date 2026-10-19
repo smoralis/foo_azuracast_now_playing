@@ -5,3 +5,4 @@
 #define IDC_POLL_INTERVAL       1002
 #define IDC_STATIC_URL          1003
 #define IDC_STATIC_INTERVAL     1004
+#define IDC_DISABLE_LOGGING     1005

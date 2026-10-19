@@ -15,112 +15,114 @@
 
 namespace azuracast {
 
-struct StationInfo {
-    int id = -1;
-    std::string name;
-    std::string description;
-    std::string next;
+    struct StationInfo {
+        int id = -1;
+        std::string name;
+        std::string description;
+        std::string next;
     };
 
-struct SongInfo {
-    std::string title;
-    std::string artist;
-    std::string album;
-    std::string art_url;
-};
-
-struct HistoryEntry {
-    std::string text;            
-    long long played_at = 0;    
-
-    bool operator==(const HistoryEntry& o) const {
-        return played_at == o.played_at && text == o.text;
-    }
-};
-
-struct NowPlayingSnapshot {
-    bool valid = false;
-	StationInfo station;
-    SongInfo song;
-    std::vector<HistoryEntry> history;
-    int listeners = -1;
-    double elapsed = -1;
-    double duration = -1;
-    std::string error;
-    int sync_countdown_s = -1;
-};
-
-class NowPlayingService {
-public:
-    NowPlayingService();
-    ~NowPlayingService();
-
-    void start(const std::wstring& station_url, unsigned poll_interval_ms);
-    void start_auto(const std::wstring& stream_url, unsigned poll_interval_ms);
-    void stop();
-
-    void set_track_sync_delay(int ms);
-
-    void refresh_from_preferences();
-
-    NowPlayingSnapshot snapshot() const;
-
-    HBITMAP art_bitmap() const;
-    HBITMAP logo_bitmap() const;
-
-    using UpdateToken = std::uint64_t;
-
-    UpdateToken add_on_update(std::function<void()> cb);
-    void remove_on_update(UpdateToken token);
-
-    std::wstring discovered_endpoint() const;
-
-private:
-    void worker_thread(std::wstring station_url, unsigned poll_interval_ms, std::shared_ptr<HttpCancelToken> cancel);
-    void auto_worker_thread(std::wstring stream_url, unsigned poll_interval_ms, std::shared_ptr<HttpCancelToken> cancel);
-    std::wstring discover_station_endpoint(const std::wstring& stream_url, const std::shared_ptr<HttpCancelToken>& cancel);
-    void poll_once(const std::wstring& station_url, const std::shared_ptr<HttpCancelToken>& cancel);
-    void update_logo(const std::wstring& api_url, int station_id, const std::shared_ptr<HttpCancelToken>& cancel);
-    void update_art(const std::string& art_url, const std::shared_ptr<HttpCancelToken>& cancel);
-    HBITMAP fetch_art_bitmap(const std::string& art_url, const std::shared_ptr<HttpCancelToken>& cancel);
-
-    void update_effective_delay();
-    void release_due();
-    void clear_pending_locked();
-    int countdown_seconds_locked(std::chrono::steady_clock::time_point now) const;
-
-    void notify_update();
-
-    mutable std::mutex m_mutex;
-    NowPlayingSnapshot m_snapshot;
-    HBITMAP m_art_bitmap = nullptr;
-    std::string m_current_art_url;
-    HBITMAP m_logo_bitmap = nullptr;
-    std::string m_logo_url;
-
-    std::wstring m_discovered_endpoint;
-
-    struct PendingUpdate {
-        std::chrono::steady_clock::time_point ready_at;
-        NowPlayingSnapshot snap;
-        HBITMAP art = nullptr;
+    struct SongInfo {
+        std::string title;
+        std::string artist;
+        std::string album;
         std::string art_url;
     };
-    std::deque<PendingUpdate> m_pending;
-    std::string m_last_fetched_art_url;
-    int m_last_countdown_s = -1;
-    std::atomic<unsigned> m_sync_delay_ms{0};   
-    std::atomic<unsigned> m_url_delay_ms{0};    
-    std::atomic<int> m_tag_delay_ms{-1};        
 
-    std::thread m_thread;
-    std::atomic<bool> m_stop{false};
-    std::shared_ptr<HttpCancelToken> m_http_cancel;
+    struct HistoryEntry {
+        std::string text;
+        long long played_at = 0;
 
-    std::map<UpdateToken, std::function<void()>> m_on_update;
-    UpdateToken m_next_update_token = 1;
-    ULONG_PTR m_gdiplusToken = 0;
-};
+        bool operator==(const HistoryEntry& o) const {
+            return played_at == o.played_at && text == o.text;
+        }
+    };
+
+    struct NowPlayingSnapshot {
+        bool valid = false;
+        StationInfo station;
+        SongInfo song;
+        std::vector<HistoryEntry> history;
+        int listeners = -1;
+        double elapsed = -1;
+        double duration = -1;
+        std::string error;
+        int sync_countdown_s = -1;
+    };
+
+    class NowPlayingService {
+    public:
+        NowPlayingService();
+        ~NowPlayingService();
+
+        void start(const std::wstring& station_url, unsigned poll_interval_ms);
+        void start_auto(const std::wstring& stream_url, unsigned poll_interval_ms);
+        void stop();
+
+        void set_track_sync_delay(int ms);
+
+        void refresh_from_preferences();
+
+        NowPlayingSnapshot snapshot() const;
+
+        HBITMAP art_bitmap() const;
+        HBITMAP logo_bitmap() const;
+
+        using UpdateToken = std::uint64_t;
+
+        UpdateToken add_on_update(std::function<void()> cb);
+        void remove_on_update(UpdateToken token);
+
+        std::wstring discovered_endpoint() const;
+
+    private:
+        void worker_thread(std::wstring station_url, unsigned poll_interval_ms, std::shared_ptr<HttpCancelToken> cancel);
+        void auto_worker_thread(std::wstring stream_url, unsigned poll_interval_ms, std::shared_ptr<HttpCancelToken> cancel);
+        std::wstring discover_station_endpoint(const std::wstring& stream_url,
+            const std::shared_ptr<HttpCancelToken>& cancel,
+            std::string& error);
+        void poll_once(const std::wstring& station_url, const std::shared_ptr<HttpCancelToken>& cancel);
+        void update_logo(const std::wstring& api_url, int station_id, const std::shared_ptr<HttpCancelToken>& cancel);
+        void update_art(const std::string& art_url, const std::shared_ptr<HttpCancelToken>& cancel);
+        HBITMAP fetch_art_bitmap(const std::string& art_url, const std::shared_ptr<HttpCancelToken>& cancel);
+
+        void update_effective_delay();
+        void release_due();
+        void clear_pending_locked();
+        int countdown_seconds_locked(std::chrono::steady_clock::time_point now) const;
+
+        void notify_update();
+
+        mutable std::mutex m_mutex;
+        NowPlayingSnapshot m_snapshot;
+        HBITMAP m_art_bitmap = nullptr;
+        std::string m_current_art_url;
+        HBITMAP m_logo_bitmap = nullptr;
+        std::string m_logo_url;
+
+        std::wstring m_discovered_endpoint;
+
+        struct PendingUpdate {
+            std::chrono::steady_clock::time_point ready_at;
+            NowPlayingSnapshot snap;
+            HBITMAP art = nullptr;
+            std::string art_url;
+        };
+        std::deque<PendingUpdate> m_pending;
+        std::string m_last_fetched_art_url;
+        int m_last_countdown_s = -1;
+        std::atomic<unsigned> m_sync_delay_ms{ 0 };
+        std::atomic<unsigned> m_url_delay_ms{ 0 };
+        std::atomic<int> m_tag_delay_ms{ -1 };
+
+        std::thread m_thread;
+        std::atomic<bool> m_stop{ false };
+        std::shared_ptr<HttpCancelToken> m_http_cancel;
+
+        std::map<UpdateToken, std::function<void()>> m_on_update;
+        UpdateToken m_next_update_token = 1;
+        ULONG_PTR m_gdiplusToken = 0;
+    };
 
     NowPlayingService& shared_service();
 

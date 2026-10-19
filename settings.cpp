@@ -9,8 +9,15 @@ static const GUID guid_cfg_station_url =
 static const GUID guid_cfg_poll_interval =
 { 0xef73a35d, 0x3523, 0x4036, { 0x94, 0x89, 0x66, 0x4a, 0x40, 0x2a, 0x48, 0xff } };
 
+// {C56EFBA2-07C1-46B9-A1EF-AC409D480A66}
+static const GUID guid_cfg_disable_logging =
+{ 0xc56efba2, 0x7c1, 0x46b9, { 0xa1, 0xef, 0xac, 0x40, 0x9d, 0x48, 0xa, 0x66 } };
+
 
 cfg_string cfg_station_url(guid_cfg_station_url,
     "");
 
 cfg_int cfg_poll_interval(guid_cfg_poll_interval, 10000);
+
+
+cfg_bool cfg_disable_logging(guid_cfg_disable_logging, false);

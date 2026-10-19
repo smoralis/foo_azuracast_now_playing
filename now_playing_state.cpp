@@ -19,13 +19,20 @@ namespace azuracast {
     namespace {
         struct probe_logger {
             pfc::string8 buffer;
-            probe_logger() { buffer << "foo_azuracast_now_playing:  "; }
-            ~probe_logger() { console::print(buffer); }
+            const bool enabled;
+            probe_logger() : enabled(!cfg_disable_logging) {
+                if (enabled) buffer << "foo_azuracast_now_playing:  ";
+            }
+            ~probe_logger() { if (enabled) console::print(buffer); }
             template <typename T>
-            probe_logger& operator<<(const T& value) { buffer << value; return *this; }
+            probe_logger& operator<<(const T& value) {
+                if (enabled) buffer << value;
+                return *this;
+            }
         };
 
         constexpr double kMaxCoverSyncSeconds = 600.0;
+        constexpr const char* kNotJsonMessage = "Server did not return JSON (not an AzuraCast API?)";
 
         bool parse_seconds(std::wstring text, double& secs) {
             const wchar_t* ws = L" \t\r\n";
@@ -362,7 +369,8 @@ namespace azuracast {
 
         while (!m_stop) {
             if (endpoint.empty()) {
-                endpoint = discover_station_endpoint(stream_url, cancel);
+                std::string probe_error;
+                endpoint = discover_station_endpoint(stream_url, cancel, probe_error);
 
                 {
                     std::lock_guard<std::mutex> lock(m_mutex);
@@ -374,9 +382,12 @@ namespace azuracast {
                         std::lock_guard<std::mutex> lock(m_mutex);
                         m_snapshot = NowPlayingSnapshot{};
                         m_discovered_endpoint.clear();
-                        m_snapshot.error = cancel && cancel->is_cancelled()
-                            ? "request cancelled"
-                            : "AzuraCast API endpoint not found for this stream";
+                        if (cancel && cancel->is_cancelled())
+                            m_snapshot.error = "request cancelled";
+                        else if (!probe_error.empty())
+                            m_snapshot.error = probe_error;
+                        else
+                            m_snapshot.error = "AzuraCast API endpoint not found for this stream";
                     }
                     notify_update();
 
@@ -395,7 +406,10 @@ namespace azuracast {
         }
     }
 
-    std::wstring NowPlayingService::discover_station_endpoint(const std::wstring& stream_url, const std::shared_ptr<HttpCancelToken>& cancel) {
+    std::wstring NowPlayingService::discover_station_endpoint(const std::wstring& stream_url, const std::shared_ptr<HttpCancelToken>& cancel, std::string& error) {
+        error.clear();
+        bool saw_non_json = false;
+
         if (stream_url.empty() || (cancel && cancel->is_cancelled())) {
             PROBE_LOG << "probe skipped: empty stream URL or cancelled";
             return {};
@@ -437,12 +451,25 @@ namespace azuracast {
             std::wstring candidate = base + L"/api/nowplaying/" + shortcode;
             PROBE_LOG << "trying station endpoint (" << pfc::stringcvt::string_utf8_from_wide(marker.c_str())
                 << "): " << pfc::stringcvt::string_utf8_from_wide(candidate.c_str());
-            HttpResponse r = http_get(candidate, cancel);
+            HttpResponse r = http_get(candidate, cancel, 1 << 20, true);
             PROBE_LOG << "station endpoint result: success=" << (r.success ? 1 : 0)
                 << " status=" << r.status_code << " error=" << r.error.c_str();
+            if (r.not_json) {
+                saw_non_json = true;
+                PROBE_LOG << "station endpoint is not JSON: " << r.error.c_str();
+                continue;
+            }
             if (r.success) {
+                Json root;
                 try {
-                    Json root = Json::parse(r.asText());
+                    root = Json::parse(r.asText());
+                }
+                catch (...) {
+                    saw_non_json = true;
+                    PROBE_LOG << "station endpoint response is not JSON";
+                    continue;
+                }
+                try {
                     if (root["station"]["shortcode"].asString() ==
                         pfc::stringcvt::string_utf8_from_wide(shortcode.c_str()).get_ptr()) {
                         PROBE_LOG << "station endpoint matched shortcode: "
@@ -462,15 +489,34 @@ namespace azuracast {
 
         const std::wstring all_endpoint = base + L"/api/nowplaying";
         PROBE_LOG << "trying all-stations endpoint: " << pfc::stringcvt::string_utf8_from_wide(all_endpoint.c_str());
-        HttpResponse all = http_get(all_endpoint, cancel);
+        HttpResponse all = http_get(all_endpoint, cancel, 4 << 20, true);
         PROBE_LOG << "all-stations result: success=" << (all.success ? 1 : 0)
             << " status=" << all.status_code << " error=" << all.error.c_str();
-        if (!all.success) return {};
+        if (all.not_json) {
+            PROBE_LOG << "all-stations endpoint is not JSON: " << all.error.c_str();
+            error = kNotJsonMessage;
+            return {};
+        }
+        if (!all.success) {
+            if (saw_non_json) error = kNotJsonMessage;
+            else if (all.status_code > 0) error = "Probe request failed (HTTP " + std::to_string(all.status_code) + ")";
+            return {};
+        }
+
+        Json root;
+        try {
+            root = Json::parse(all.asText());
+        }
+        catch (...) {
+            PROBE_LOG << "all-stations response is not JSON";
+            error = kNotJsonMessage;
+            return {};
+        }
 
         try {
-            Json root = Json::parse(all.asText());
             if (root.type() != Json::Type::Array) {
                 PROBE_LOG << "all-stations response was not an array";
+                error = "Server returned JSON, but not an AzuraCast station list";
                 return {};
             }
             PROBE_LOG << "checking " << (t_size)root.size() << " station(s) for a stream URL match";
@@ -510,9 +556,10 @@ namespace azuracast {
             }
         }
         catch (...) {
-            PROBE_LOG << "exception while parsing/matching all-stations response";
+            PROBE_LOG << "exception while matching all-stations response";
         }
 
+        if (saw_non_json) error = kNotJsonMessage;
         PROBE_LOG << "probe failed: no matching AzuraCast station endpoint found";
         return {};
     }
@@ -528,7 +575,7 @@ namespace azuracast {
     }
 
     void NowPlayingService::poll_once(const std::wstring& station_url, const std::shared_ptr<HttpCancelToken>& cancel) {
-        HttpResponse resp = http_get(station_url, cancel);
+        HttpResponse resp = http_get(station_url, cancel, 8 << 20, true);
         const auto fetched_at = std::chrono::steady_clock::now();
 
         NowPlayingSnapshot snap;
